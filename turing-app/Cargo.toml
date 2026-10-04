@@ -1,0 +1,16 @@
+[package]
+name = "turing-app"
+version = "0.1.0"
+edition = "2021"
+authors = ["PocketDev"]
+description = "High-performance LSM storage engine and concurrent Actor system in Rust"
+
+[lib]
+name = "turing_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "turing-server"
+path = "src/main.rs"
+
+[dependencies]

@@ -1,0 +1,22 @@
+[workspace]
+members = [
+    ".",
+    "turing-app",
+]
+
+[package]
+name = "nimble-shell"
+version = "0.1.0"
+edition = "2021"
+authors = ["PocketDev"]
+description = "High-performance interactive Unix shell with multi-subagent performance benchmarking engine in Rust"
+
+[[bin]]
+name = "nimble-shell"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
