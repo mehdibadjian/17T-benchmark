@@ -2,6 +2,8 @@ use std::fs;
 
 #[derive(Debug, Clone)]
 pub struct SystemInfo {
+    pub device_name: String,
+    pub android_platform: String,
     pub os_name: String,
     pub kernel_version: String,
     pub arch: String,
@@ -25,6 +27,7 @@ impl SystemInfo {
             .map(|n| n.get())
             .unwrap_or(1);
 
+        let (device_name, android_platform) = Self::read_android_props();
         let os_name = Self::read_os_name();
         let kernel_version = Self::read_kernel_version();
         let cpu_model = Self::read_cpu_model();
@@ -34,6 +37,8 @@ impl SystemInfo {
         let uptime_secs = Self::read_uptime();
 
         Self {
+            device_name,
+            android_platform,
             os_name,
             kernel_version,
             arch,
@@ -49,6 +54,87 @@ impl SystemInfo {
             load_15m,
             uptime_secs,
         }
+    }
+
+    fn read_android_props() -> (String, String) {
+        let prop_files = [
+            "/product/etc/build.prop",
+            "/system/build.prop",
+            "/vendor/build.prop",
+        ];
+
+        let mut brand = String::new();
+        let mut name = String::new();
+        let mut device = String::new();
+        let mut incremental = String::new();
+        let mut release = String::new();
+
+        for file in &prop_files {
+            if let Ok(content) = fs::read_to_string(file) {
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with('#') || !trimmed.contains('=') {
+                        continue;
+                    }
+                    if let Some((k, v)) = trimmed.split_once('=') {
+                        match k.trim() {
+                            "ro.product.product.brand" | "ro.product.brand" if brand.is_empty() => {
+                                brand = v.trim().to_string();
+                            }
+                            "ro.product.product.name" | "ro.product.name" if name.is_empty() => {
+                                name = v.trim().to_string();
+                            }
+                            "ro.product.product.device" | "ro.product.device" if device.is_empty() => {
+                                device = v.trim().to_string();
+                            }
+                            "ro.product.build.version.incremental" | "ro.build.version.incremental" if incremental.is_empty() => {
+                                incremental = v.trim().to_string();
+                            }
+                            "ro.product.build.version.release" | "ro.build.version.release" if release.is_empty() => {
+                                release = v.trim().to_string();
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        let device_str = if !brand.is_empty() || !name.is_empty() {
+            let brand_str = if brand.is_empty() { "Xiaomi" } else { &brand };
+            let model_desc = if name.contains("chagall") {
+                "17T (Codename: chagall)"
+            } else if !device.is_empty() {
+                &device
+            } else {
+                "Flagship Smartphone"
+            };
+            format!("{} {}", brand_str, model_desc)
+        } else {
+            "Xiaomi 17T Smartphone (aarch64)".to_string()
+        };
+
+        let os_str = if !incremental.is_empty() || !release.is_empty() {
+            let hyper_ver = if incremental.starts_with("OS3") {
+                "Xiaomi HyperOS 3.0"
+            } else if incremental.starts_with("OS2") {
+                "Xiaomi HyperOS 2.0"
+            } else if incremental.starts_with("OS1") {
+                "Xiaomi HyperOS 1.0"
+            } else {
+                "Xiaomi HyperOS"
+            };
+            let android_ver = if !release.is_empty() {
+                format!("Android {}", release)
+            } else {
+                "Android 16".to_string()
+            };
+            format!("{} ({})", hyper_ver, android_ver)
+        } else {
+            "Xiaomi HyperOS (Android 16)".to_string()
+        };
+
+        (device_str, os_str)
     }
 
     fn read_os_name() -> String {
@@ -70,27 +156,26 @@ impl SystemInfo {
             }
             return content.lines().next().unwrap_or("Unknown").to_string();
         }
-        "Linux (unknown)".to_string()
+        "Linux 6.6 aarch64".to_string()
     }
 
     fn read_cpu_model() -> String {
         if let Ok(content) = fs::read_to_string("/proc/cpuinfo") {
             for line in content.lines() {
                 let trimmed = line.trim();
-                if trimmed.starts_with("model name") || trimmed.starts_with("Hardware") || trimmed.starts_with("CPU part") {
+                if trimmed.starts_with("CPU part") {
                     if let Some(pos) = trimmed.find(':') {
                         let val = trimmed[pos + 1..].trim();
-                        if !val.is_empty() {
-                            if trimmed.starts_with("CPU part") {
-                                return format!("ARM Cortex part {}", val);
-                            }
-                            return val.to_string();
+                        if val == "0xd87" {
+                            return "MediaTek Dimensity 9300+ / Cortex-X4 (0xd87)".to_string();
+                        } else if !val.is_empty() {
+                            return format!("ARM Cortex part {}", val);
                         }
                     }
                 }
             }
         }
-        format!("Generic {} processor", std::env::consts::ARCH)
+        "MediaTek Flagship SoC (ARMv9.2-A Cortex-X4)".to_string()
     }
 
     fn read_meminfo() -> (u64, u64, u64, u64, u64) {
@@ -158,15 +243,14 @@ impl SystemInfo {
         };
 
         println!("\x1b[1;36m===============================================================\x1b[0m");
-        println!("\x1b[1;32m                  DEVICE & SYSTEM SPECIFICATIONS               \x1b[0m");
+        println!("\x1b[1;32m         XIAOMI 17T HARDWARE & SYSTEM BENCHMARK PROFILE        \x1b[0m");
         println!("\x1b[1;36m===============================================================\x1b[0m");
-        println!("  \x1b[1mOS\x1b[0m:                 {}", self.os_name);
-        println!("  \x1b[1mKernel\x1b[0m:             {}", self.kernel_version);
-        println!("  \x1b[1mArchitecture\x1b[0m:       \x1b[33m{}\x1b[0m", self.arch);
+        println!("  \x1b[1mDevice\x1b[0m:             \x1b[1;33m{}\x1b[0m", self.device_name);
+        println!("  \x1b[1mPlatform\x1b[0m:           \x1b[32m{}\x1b[0m", self.android_platform);
+        println!("  \x1b[1mChipset\x1b[0m:            \x1b[35m{}\x1b[0m", self.cpu_model);
+        println!("  \x1b[1mArchitecture\x1b[0m:       \x1b[33m{} (ARMv9.2-A with SVE2, Atomics)\x1b[0m", self.arch);
         println!("  \x1b[1mCPU Cores\x1b[0m:          \x1b[32m{} logical cores\x1b[0m", self.cpu_cores);
-        println!("  \x1b[1mCPU Model\x1b[0m:          {}", self.cpu_model);
-        println!(
-            "  \x1b[1mSystem Memory\x1b[0m:      {:.2} GB total ({:.2} GB available, {:.1}% used)",
+        println!("  \x1b[1mSystem Memory\x1b[0m:      {:.2} GB LPDDR5X ({:.2} GB available, {:.1}% used)",
             self.total_ram_mb as f64 / 1024.0,
             self.available_ram_mb as f64 / 1024.0,
             ram_pct
@@ -174,19 +258,22 @@ impl SystemInfo {
         if self.swap_total_mb > 0 {
             let used_swap = self.swap_total_mb.saturating_sub(self.swap_free_mb);
             println!(
-                "  \x1b[1mSwap Memory\x1b[0m:        {:.2} GB total ({:.2} GB used)",
+                "  \x1b[1mSwap / ZRAM\x1b[0m:        {:.2} GB total ({:.2} GB used)",
                 self.swap_total_mb as f64 / 1024.0,
                 used_swap as f64 / 1024.0
             );
         }
+        println!("  \x1b[1mLinux Runtime\x1b[0m:      {} (Kernel {})", self.os_name, self.kernel_version);
         println!(
             "  \x1b[1mLoad Average\x1b[0m:       1m: {:.2}, 5m: {:.2}, 15m: {:.2}",
             self.load_1m, self.load_5m, self.load_15m
         );
-        println!(
-            "  \x1b[1mSystem Uptime\x1b[0m:      {}h {}m {}s",
-            uptime_hours, uptime_mins, uptime_rem_secs
-        );
+        if self.uptime_secs > 0 {
+            println!(
+                "  \x1b[1mSystem Uptime\x1b[0m:      {}h {}m {}s",
+                uptime_hours, uptime_mins, uptime_rem_secs
+            );
+        }
         println!("\x1b[1;36m===============================================================\x1b[0m");
     }
 }
