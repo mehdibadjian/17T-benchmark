@@ -109,6 +109,12 @@ The workspace consists of two integrated applications:
   - Explicit tombstone markers (`Option<Vec<u8>> = None`) for deleted entries.
 - **SSTable (`sstable.rs`)**:
   - Binary formatted disk files containing sorted key-value pairs and an index block at EOF for $O(\log N)$ binary search seek without reading the whole file.
+- **MVCC ACID Transactions (`storage/txn.rs`)**:
+  - Implements Snapshot Isolation (SI) with multi-version concurrency control.
+  - Read-your-own-writes in private local transaction buffers.
+  - First-committer-wins write-write conflict detection on `commit()`.
+  - Atomic batch commit into the underlying LSM engine and WAL.
+  - Clean rollback with zero storage footprint.
 - **Compaction (`engine.rs`)**:
   - Multi-generation SSTable merge into consolidated single-generation files, discarding obsolete historical versions and tombstones.
 - **Actor Runtime (`actor/mod.rs`)**:
@@ -119,7 +125,9 @@ The workspace consists of two integrated applications:
 
 ---
 
-## 2. Test Verification Suite (39 Tests Passed)
+## 2. Test Verification Suite (45 Tests Passed)
+
+Developed using strict **Test-Driven Development (TDD)**:
 
 ```text
 cargo test --workspace
@@ -172,7 +180,16 @@ test test_end_to_end_network ... ok
 test test_concurrency_multi_threaded ... ok
 test result: ok. 4 passed; 0 failed
 
-Total: 39 passed, 0 failed, 0 ignored.
+running 6 tests (turing-app/tests/mvcc_txn_tests.rs - TDD Suite)
+test test_txn_read_your_own_writes ... ok
+test test_txn_range_scan_with_pending_writes ... ok
+test test_txn_rollback ... ok
+test test_txn_snapshot_isolation ... ok
+test test_txn_write_write_conflict_detection ... ok
+test test_txn_concurrent_bank_transfers_acid ... ok
+test result: ok. 6 passed; 0 failed
+
+Total: 45 passed, 0 failed, 0 ignored.
 ```
 
 ---

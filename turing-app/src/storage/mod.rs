@@ -1,11 +1,13 @@
 pub mod engine;
 pub mod memtable;
 pub mod sstable;
+pub mod txn;
 pub mod wal;
 
 pub use engine::LsmStorageEngine;
 pub use memtable::MemTable;
 pub use sstable::{IndexEntry, SsTableReader, SsTableWriter};
+pub use txn::{Transaction, TxnError, TxnId, TxnManager, TxnStatus};
 pub use wal::{crc32, WalOpType, WalReader, WalRecord, WalWriter};
 
 #[cfg(test)]
